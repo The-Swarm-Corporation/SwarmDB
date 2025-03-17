@@ -26,7 +26,7 @@ from starlette.middleware.base import (
 )
 
 # Import the SwarmsDB and related models
-from agent_messaging_system import (
+from swarmdb import (
     SwarmsDB,
     KafkaConfig,
     Message,
