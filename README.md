@@ -25,7 +25,7 @@ A production-grade message queue system for agent communication and LLM backend 
 The Agent Messaging System is built with the following components:
 
 1. **Kafka Backend**: For reliable message distribution and queuing
-2. **AgentMessagingSystem Class**: Core messaging logic and state management
+2. **SwarmsDB Class**: Core messaging logic and state management
 3. **FastAPI Server**: RESTful API for agent interaction
 4. **Gunicorn/Uvicorn**: ASGI server for production deployment
 
