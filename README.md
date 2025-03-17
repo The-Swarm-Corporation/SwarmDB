@@ -1,67 +1,208 @@
-[![Multi-Modality](agorabanner.png)](https://discord.com/servers/agora-999382051935506503)
-
-# Python Package Template
+# Swarms DB
 
 [![Join our Discord](https://img.shields.io/badge/Discord-Join%20our%20server-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/agora-999382051935506503) [![Subscribe on YouTube](https://img.shields.io/badge/YouTube-Subscribe-red?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/@kyegomez3242) [![Connect on LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/kye-g-38759a207/) [![Follow on X.com](https://img.shields.io/badge/X.com-Follow-1DA1F2?style=for-the-badge&logo=x&logoColor=white)](https://x.com/kyegomezb)
 
-A easy, reliable, fluid template for python packages complete with docs, testing suites, readme's, github workflows, linting and much much more
 
+A production-grade message queue system for agent communication and LLM backend load balancing in large-scale multi-agent systems. This system provides a scalable solution using Apache Kafka for reliable message distribution with comprehensive features for agent communication, message management, and load balancing.
+
+## Features
+
+- **Robust Message Distribution**: Built on Apache Kafka for reliable, scalable message handling
+- **Auto-Partitioning**: Kafka topics automatically scale based on agent load
+- **Stateful Management**: Comprehensive tracking of message states and history
+- **Persistence**: Automatic saving of all interactions to JSON files
+- **RESTful API**: Complete FastAPI interface for all messaging operations
+- **Authentication & Authorization**: JWT-based secure agent authentication
+- **Production-Ready**: Deployment with Gunicorn/Uvicorn for high performance
+- **Comprehensive Logging**: Detailed logs using Loguru
+- **Containerized**: Docker and Docker Compose setup for easy deployment
+- **Message Types**: Support for different message types (chat, commands, function calls)
+- **Group Messaging**: Ability to create agent groups for targeted communication
+- **Load Balancing**: Built-in LLM backend load balancing capabilities
+
+## System Architecture
+
+The Agent Messaging System is built with the following components:
+
+1. **Kafka Backend**: For reliable message distribution and queuing
+2. **AgentMessagingSystem Class**: Core messaging logic and state management
+3. **FastAPI Server**: RESTful API for agent interaction
+4. **Gunicorn/Uvicorn**: ASGI server for production deployment
 
 ## Installation
 
-You can install the package using pip
+### Using Docker Compose (Recommended)
 
 ```bash
-pip install -e .
+# Clone the repository
+git clone https://github.com/yourusername/agent-messaging-system.git
+cd agent-messaging-system
+
+# Start the entire stack (Kafka, Zookeeper, API)
+docker-compose up -d
+
+# The API will be available at http://localhost:8000
+# The Kafka UI will be available at http://localhost:8080
 ```
 
-# Usage
-```python
-print("hello world")
+### Manual Installation
 
+1. Install Poetry (dependency management):
+
+```bash
+curl -sSL https://install.python-poetry.org | python3 -
 ```
 
+2. Install dependencies:
 
-
-### Code Quality 🧹
-
-- `make style` to format the code
-- `make check_code_quality` to check code quality (PEP8 basically)
-- `black .`
-- `ruff . --fix`
-
-### Tests 🧪
-
-[`pytests`](https://docs.pytest.org/en/7.1.x/) is used to run our tests.
-
-### Publish on PyPi 🚀
-
-**Important**: Before publishing, edit `__version__` in [src/__init__](/src/__init__.py) to match the wanted new version.
-
-```
-poetry build
-poetry publish
+```bash
+poetry install
 ```
 
-### CI/CD 🤖
+3. Make sure Kafka is running and accessible.
 
-We use [GitHub actions](https://github.com/features/actions) to automatically run tests and check code quality when a new PR is done on `main`.
+4. Start the API server:
 
-On any pull request, we will check the code quality and tests.
+```bash
+# For development
+./start.sh development
 
-When a new release is created, we will try to push the new code to PyPi. We use [`twine`](https://twine.readthedocs.io/en/stable/) to make our life easier. 
+# For production
+./start.sh production
+```
 
-The **correct steps** to create a new realease are the following:
-- edit `__version__` in [src/__init__](/src/__init__.py) to match the wanted new version.
-- create a new [`tag`](https://git-scm.com/docs/git-tag) with the release name, e.g. `git tag v0.0.1 && git push origin v0.0.1` or from the GitHub UI.
-- create a new release from GitHub UI
+## Environment Configuration
 
-The CI will run when you create the new release.
+The system can be configured using environment variables:
 
-# Docs
-We use MK docs. This repo comes with the zeta docs. All the docs configurations are already here along with the readthedocs configs.
+```
+# API Configuration
+API_ENV=production
+PORT=8000
 
+# Security
+JWT_SECRET=your_secret_key_here
+JWT_ALGORITHM=HS256
+TOKEN_EXPIRE_MINUTES=1440
 
+# Kafka Configuration
+KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+KAFKA_TOPIC_PREFIX=agent_messaging_
+KAFKA_NUM_PARTITIONS=6
+KAFKA_REPLICATION_FACTOR=1
 
-# License
+# Message History Configuration
+MESSAGE_HISTORY_DIR=/app/message_history
+SAVE_INTERVAL_SECONDS=300
+
+# Rate Limiting
+RATE_LIMIT_PER_MINUTE=300
+```
+
+## API Usage
+
+### Authentication
+
+```bash
+# Get access token
+curl -X POST http://localhost:8000/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"username":"agent1", "password":"password"}'
+```
+
+### Register an Agent
+
+```bash
+curl -X POST http://localhost:8000/agents/register \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"agent_id":"agent1", "description":"AI Assistant Agent"}'
+```
+
+### Send a Message
+
+```bash
+curl -X POST http://localhost:8000/messages \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "Hello, can you analyze this data?",
+    "receiver_id": "agent2",
+    "message_type": "command",
+    "priority": 2
+  }'
+```
+
+### Receive Messages
+
+```bash
+curl -X POST http://localhost:8000/agents/receive \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d "max_messages=10&timeout=2.0"
+```
+
+### Create an Agent Group
+
+```bash
+curl -X POST http://localhost:8000/groups \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "group_name": "analysis_team",
+    "agent_ids": ["agent2", "agent3", "agent4"]
+  }'
+```
+
+### Send to a Group
+
+```bash
+curl -X POST http://localhost:8000/groups/message \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "group_name": "analysis_team",
+    "content": "Everyone, please review these results.",
+    "message_type": "chat"
+  }'
+```
+
+## Development
+
+### Running Tests
+
+```bash
+poetry run pytest
+```
+
+### Code Formatting
+
+```bash
+poetry run black .
+poetry run isort .
+```
+
+### Type Checking
+
+```bash
+poetry run mypy .
+```
+
+## Production Deployment
+
+For production deployment, we recommend using Docker Compose with appropriate environment variables for security.
+
+1. Edit the environment variables in docker-compose.yml
+2. Ensure the JWT_SECRET is a secure random string
+3. Deploy with docker-compose:
+
+```bash
+docker-compose up -d
+```
+
+## License
+
 MIT
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
