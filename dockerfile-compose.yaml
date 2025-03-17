@@ -1,0 +1,123 @@
+version: '3.8'
+
+services:
+  # ZooKeeper service (required for Kafka)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.0
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Kafka service
+  kafka:
+    image: confluentinc/cp-kafka:7.3.0
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Kafka UI for monitoring (optional but helpful)
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+
+  # Agent Messaging System API
+  agent-messaging-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agent-messaging-api
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      # API Configuration
+      API_ENV: production
+      PORT: 8000
+      
+      # Security
+      JWT_SECRET: ${JWT_SECRET:-changemeinproduction}
+      JWT_ALGORITHM: HS256
+      TOKEN_EXPIRE_MINUTES: 1440
+      
+      # Kafka Configuration
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC_PREFIX: agent_messaging_
+      KAFKA_NUM_PARTITIONS: 6
+      KAFKA_REPLICATION_FACTOR: 1
+      
+      # Message History Configuration
+      MESSAGE_HISTORY_DIR: /app/message_history
+      SAVE_INTERVAL_SECONDS: 300
+      
+      # Rate Limiting
+      RATE_LIMIT_PER_MINUTE: 300
+      
+      # CORS Configuration
+      CORS_ORIGINS: "*"
+      
+      # Gunicorn Configuration
+      GUNICORN_BIND: 0.0.0.0:8000
+      GUNICORN_WORKERS: 4
+      GUNICORN_THREADS: 4
+      GUNICORN_TIMEOUT: 120
+      GUNICORN_ACCESS_LOG: /var/log/agent_messaging/access.log
+      GUNICORN_ERROR_LOG: /var/log/agent_messaging/error.log
+      GUNICORN_LOG_LEVEL: info
+    volumes:
+      - ./message_history:/app/message_history
+      - ./logs:/var/log/agent_messaging
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  zookeeper-data:
+  zookeeper-log:
+  kafka-data:
